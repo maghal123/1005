@@ -1,0 +1,176 @@
+---
+title: "Assignment 1"
+format: pdf
+editor: visual
+---
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(zoo)
+```
+
+```{r, echo=FALSE}
+suppressWarnings({
+  
+#Extracting data for each of the four zones
+df_lower <- read_table2("https://www.nsstc.uah.edu/data/msu/v6.0/tlt/uahncdc_lt_6.0.txt")
+
+df_mid <- read_table2("https://www.nsstc.uah.edu/data/msu/v6.0/tmt/uahncdc_mt_6.0.txt")
+
+df_pause <- read_table2("https://www.nsstc.uah.edu/data/msu/v6.0/ttp/uahncdc_tp_6.0.txt")
+
+df_strato <- read_table2("https://www.nsstc.uah.edu/data/msu/v6.0/tls/uahncdc_ls_6.0.txt")
+
+})
+```
+
+```{r}
+#filtering data after the year 1979
+df_lower <- df_lower %>%
+filter(Year >= 1979)
+
+#making temperatures numeric
+df_lower <- df_lower%>%
+    mutate(Globe = as.numeric(Globe)) 
+
+#removing useless text
+df_lower <- head(df_lower, - 9) 
+
+#Making a date collumn to make it easier to sort
+df_lower$Date <- as.Date(paste(df_lower$Year, df_lower$Mo, 1, sep="-"), format = "%Y-%m-%d")
+
+df_lower <- df_lower%>% mutate(Year = year(Date),
+                              Month = month(Date),
+                              Month2 = month(Date, label = TRUE, abbr = FALSE))
+ 
+
+#Finding the rolling average
+df_lower <- df_lower%>%
+filter(Year != 1979)%>%
+mutate(rolling_avg.lower = rollmean(Globe, k=13, fill=NA, align='right'))
+
+#selecting nessecary data 
+df_lower <- df_lower%>%
+select(Date, rolling_avg.lower)
+
+```
+
+```{r}
+#filtering data after the year 1979
+df_mid <- df_mid %>%
+filter(Year >= 1979)
+
+#making temperatures numeric
+df_mid <- df_mid%>%
+    mutate(Globe = as.numeric(Globe)) 
+
+#removing useless text
+df_mid <- head(df_mid, - 9)  
+
+#Making a date collumn to make it easier to sort
+df_mid$Date <- as.Date(paste(df_mid$Year, df_mid$Mo, 1, sep="-"), format = "%Y-%m-%d")
+  
+df_mid <- df_mid%>%
+  select(Date,Globe)
+df_mid <- df_mid%>% mutate(Year = year(Date),
+                              Month = month(Date),
+                              Month2 = month(Date, label = TRUE, abbr = FALSE))
+
+#Finding the rolling average
+df_mid <- df_mid%>%
+filter(Year != 1979)%>%
+mutate(rolling_avg.mid = rollmean(Globe, k=13, fill=NA, align='right'))
+
+
+#selecting nessecary data 
+df_mid <- df_mid%>%
+select(Date, rolling_avg.mid)
+```
+
+```{r}
+#filtering data after the year 1979
+df_pause <- df_pause%>%
+filter(Year >= 1979)
+
+#making temperatures numeric
+df_pause <- df_pause%>%
+    mutate(Globe = as.numeric(Globe)) 
+
+#removing useless text
+df_pause <- head(df_pause, - 9)  
+
+#Making a date collumn to make it easier to sort
+df_pause$Date <- as.Date(paste(df_pause$Year, df_pause$Mo, 1, sep="-"), format = "%Y-%m-%d")
+  
+df_pause <- df_pause%>% mutate(Year = year(Date),
+                              Month = month(Date),
+                              Month2 = month(Date, label = TRUE, abbr = FALSE))
+#Finding the rolling average
+df_pause <- df_pause%>%
+filter(Year != 1979)%>%
+mutate(rolling_avg.pause = rollmean(Globe, k=13, fill=NA, align='right'))
+
+#selecting nessecary data 
+df_pause <- df_pause%>%
+select(Date, rolling_avg.pause)
+
+```
+
+```{r}
+#filtering data after the year 1979
+df_strato <- df_strato%>%
+filter(Year >= 1979)
+
+#making temperatures numeric
+df_strato <- df_strato%>%
+    mutate(Globe = as.numeric(Globe)) 
+
+#removing useless text
+df_strato <- head(df_strato, - 9)  
+
+#Making a date collumn to make it easier to sort
+df_strato$Date <- as.Date(paste(df_strato$Year, df_strato$Mo, 1, sep="-"), format = "%Y-%m-%d")
+  
+df_strato <- df_strato%>% mutate(Year = year(Date),
+                              Month = month(Date),
+                              Month2 = month(Date, label = TRUE, abbr = FALSE))
+
+#Finding the rolling average
+df_strato <- df_strato%>%
+filter(Year != 1979)%>%
+mutate(rolling_avg.strato = rollmean(Globe, k=13, fill=NA, align='right'))
+
+#selecting nessecary data 
+df_strato <- df_strato%>%
+select(Date, rolling_avg.strato)
+
+```
+
+```{r}
+#mergeing datasets
+df_avg <- merge(df_lower, df_mid, by="Date")
+
+df_avg <- merge(df_avg, df_pause, by="Date")
+
+df_avg <- merge(df_avg, df_strato, by="Date")
+
+#finding the grand mean
+df_avg$Means <-apply(df_avg[2:5],1,mean)
+
+#selecting nessecery data
+df_avg <- df_avg %>%
+  select(Date, rolling_avg.lower, rolling_avg.mid, rolling_avg.pause, rolling_avg.strato, Means)
+
+#making it a long format
+df_avg <- df_avg %>%
+  pivot_longer(2:6, names_to = "var", values_to = "val")
+
+#plotting 
+  df_avg %>%
+    ggplot(aes(x=Date, y=val, col=var)) +
+    geom_line()+
+    labs(y="Temprature", x = "",  title= "Rolling average of temperatures in different atmospheric zones", colour="")+
+    theme(legend.position = "bottom")+
+   scale_color_discrete(labels = c("Grand mean","Lower Troposphere", "Mid Troposphere", "Tropopause", "Lower Stratosphere"))
+```
