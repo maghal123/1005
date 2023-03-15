@@ -1,0 +1,56 @@
+---
+title: "assignment-3"
+format: html
+editor: visual
+---
+
+```{r echo = FALSE, message = FALSE}
+#enabling necessary packages
+rm(list=ls()) 
+library(scales)
+library(jsonlite)
+library(dbplyr)
+library(ggplot2)
+library(ggrepel)
+```
+
+```{r}
+#getting json link from the website
+url <- "https://static01.nyt.com/newsgraphics/2021/12/20/us-coronavirus-deaths-2021/ff0adde21623e111d8ce103fedecf7ffc7906264/scatter.json"
+#using a function from the jsonlite package to fetch the data
+covid_data <- fromJSON(url)
+```
+
+```{r}
+#making the plot p
+p <- covid_data %>%
+  ggplot(aes(x = fully_vaccinated_pct_of_pop, y = deaths_per_100k)) + 
+  geom_point(color="#339966", alpha=0.5) +
+  geom_segment(aes(x = 0.6, y = 15, xend = 0.55, yend = 17.5), #adding the arrows
+  arrow = arrow(length = unit(0.25, "cm"), type = "closed")) +
+  geom_segment(aes(x = 0.75, y = 10, xend = 0.80, yend = 7.5), 
+  arrow = arrow(length = unit(0.25, "cm"), type = "closed")) +
+  geom_text(aes(x = 0.65, y = 14.4, label = "Lower vaccination rate, higher death rate"), size = 3, nudge_y = 0.25) +
+  geom_text(aes(x = 0.73, y = 11, label = "Higher vaccination rate, lower death rate"), size = 3, nudge_y = 0.25) +
+  labs(title = "Covid-19 deaths since universal adult vaccine eligibility compared with vaccination rates", 
+       y = "20 avg. monthly deaths per 100,000",
+       x = "share of population fully vaccinated") +
+  geom_text_repel(aes(label = name), size=2.5) + #making the goem text names not overlap
+  scale_x_continuous(labels = percent_format()) + #making the x-axis percent
+  theme(plot.title = element_text(size = 12)) #adjusting the title size
+
+
+p
+```
+
+```{r}
+lm(deaths_per_100k ~ fully_vaccinated_pct_of_pop, data=covid_data)
+```
+
+The linear regression test gives me an estimated intercept and slope (fully_vaccinated_pct_of_pop) value of 31.15 and -36.66. The intercept value tells me about the response value (deaths_per_100k) estimated position when the predictor value (fully_vaccinated_pct_of_pop) is at zero. The slope value (fully_vaccinated_pct_of_pop) is an estimated decrease/increase of the response value (deaths_per_100k) when the predictor value (fully_vaccinated_pct_of_pop) is increased by one-unit.
+
+This means that when 0 percent of the population of a state is vaccinated the estimated deaths per 100k is at 31.15. The slope value indicates that a one-unit increase of vaccinations decreases the deaths per 100k by 36.66. This output shows a negative relationship between the percentage of the population that is vaccinated and the fatalities from the covid-19 pandameic.
+
+```{r}
+p + geom_smooth(method = lm)
+```
