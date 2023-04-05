@@ -1,0 +1,192 @@
+---
+title: "assignment-4"
+format: html
+editor: visual
+---
+
+# Assignment 4
+
+```{r echo = FALSE, message = FALSE}
+#enabling necessary packages
+rm(list=ls()) 
+library(tidyverse)
+library(rvest)
+library(readr)
+library(lubridate)
+library(zoo)
+```
+
+## Task 1
+
+```{r}
+#Getting data from the csv file
+url <- "https://raw.githubusercontent.com/uit-sok-1005-v23/uit-sok-1005-v23.github.io/main/storedata.csv"
+df <- read.csv(url)
+
+#making the date a date variable
+df <- df%>%
+mutate(Order_Date = as.Date(Order_Date)) 
+```
+
+## Task 1.1
+
+```{r}
+
+#Filtering correct dates and selecting the needed variables
+df_1 <- df %>%
+  filter(Order_Date >= as.Date("2017-10-01"), Order_Date <= as.Date("2018-01-01")) %>%
+  pivot_wider(names_from = Region, values_from = Sales) %>%
+  select(Order_ID, Order_Date, Customer_Segment, `Region 1`, `Region 9`) %>%
+  arrange(Customer_Segment)
+
+
+#Removing rows that are not needed
+df_1 <- df_1[1:226,] %>%
+pivot_longer(4:5, values_to =  "values", names_to = "region")
+
+
+#Summarising the monthly sales 
+Table1 <- df_1 %>%
+group_by(month = format(Order_Date, "%m"), year = format(Order_Date, "%Y"), region,      Customer_Segment) %>%
+summarise(total_sales = sum(values, na.rm = TRUE))
+
+
+Table1
+```
+
+## Task 1.2
+
+```{r}
+
+#Filtering dates and selecting correct variables
+df_2 <- df %>%
+  filter(Order_Date >= as.Date("2015-01-01"), Order_Date <= as.Date("2018-01-01")) %>%
+  pivot_wider(names_from = Region, values_from = Sales) %>%
+  select(Order_ID, Order_Date,`Region 1`,`Region 13`) %>%
+  pivot_longer(3:4, values_to =  "values", names_to = "region")
+
+
+#calculating monthly sales in the regions
+df_2 <- df_2 %>%
+  group_by(month = format(Order_Date, "%m"), year = format(Order_Date, "%Y"), region) %>%
+  summarise(total_sales = sum(values, na.rm = TRUE)) 
+
+
+#making a new date column that is easier to plot
+df_2$date <- as.yearmon(paste(df_2$year, df_2$month), "%Y %m") 
+
+#plotting figure 1
+Figure1 <- df_2%>%
+  ggplot(aes(x = date, y=total_sales, col=region)) +
+  geom_point(size=1)+
+   labs(title = "Monthly sales, region 1 and 13", 
+       y = "Dollars",
+       x = "date") +
+  scale_color_discrete(name="")
+  
+Figure1
+```
+
+## Task 1.3
+
+```{r}
+#Finding the rows with region 13 > region 1
+Table2 <- df_2 %>%
+  pivot_wider(names_from = region, values_from = total_sales)%>%
+  filter(`Region 13` > `Region 1`)%>%
+  arrange(date)
+Table2
+```
+
+## Task 1.4
+
+```{r}
+#Filtering dates and selecting variables
+df_3 <-df  %>%
+filter(Order_Date >= as.Date("2017-01-01"), Order_Date <= as.Date("2018-01-01")) %>%
+pivot_wider(names_from = Region, values_from = Profit) %>%
+select(Customer_Segment, Product_Category, `Region 1`, `Region 2`, `Region 4`, `Region 6`, `Region 7`, `Region 9`, `Region 10`, `Region 11`, `Region 12`, `Region 13`)%>%
+pivot_longer(3:12, values_to =  "profit", names_to = "region")
+
+#Finding the average profit grouped 
+df_3 <- df_3 %>%
+  group_by(Customer_Segment, Product_Category) %>%
+  summarise(average_profit = mean(profit, na.rm = TRUE))
+
+#Finding the highest profit
+Table3 <- df_3 %>%
+  group_by(Customer_Segment) %>%
+  summarise(highest_average_profit = mean(average_profit, na.rm = TRUE))
+  
+Table3
+```
+
+# TASK 2
+
+```{r echo = FALSE, message = FALSE}
+#Loading in data
+url1 <- "https://query1.finance.yahoo.com/v7/finance/download/XOM?period1=1262563200&period2=1680048000&interval=1d&events=history&includeAdjustedClose=true"
+
+df_exxon <- read_csv(url1)
+
+#Finding the monthly average with volume as weight
+df_exxon <- df_exxon %>%
+  group_by(date = format(Date, "%Y-%m")) %>%
+  summarise(exxon = weighted.mean(`Adj Close`, Volume))
+```
+
+```{r echo = FALSE, message = FALSE}
+
+#loading in data
+url2 <- "https://fred.stlouisfed.org/graph/fredgraph.csv?bgcolor=%23e1e9f0&chart_type=line&drp=0&fo=open%20sans&graph_bgcolor=%23ffffff&height=450&mode=fred&recession_bars=off&txtcolor=%23444444&ts=12&tts=12&width=1318&nt=0&thu=0&trc=0&show_legend=yes&show_axis_titles=yes&show_tooltip=yes&id=DCOILBRENTEU&scale=left&cosd=2010-01-04&coed=2023-03-20&line_color=%234572a7&link_values=false&line_style=solid&mark_type=none&mw=3&lw=2&ost=-99999&oet=99999&mma=0&fml=a&fq=Daily&fam=avg&fgst=lin&fgsnd=2020-02-01&line_index=1&transformation=lin&vintage_date=2023-03-29&revision_date=2023-03-29&nd=1987-05-20"
+
+df_oil <- read_csv(url2)
+
+
+#removing na data and making data numeric
+df_oil<-df_oil %>%
+  subset(DCOILBRENTEU!=".") %>%
+  mutate(value = as.numeric(DCOILBRENTEU)) %>%
+  rename(date = DATE)
+
+
+#Finding the monthly average 
+df_oil <- df_oil %>%
+  mutate(date = format(date, "%Y-%m")) %>%
+  group_by(date) %>%
+  summarize(oil= mean(value))
+```
+
+```{r}
+#merging the datasets
+df_oil_exxon <- merge(df_oil, df_exxon, by = "date", all = TRUE)
+
+#removing unecessary data
+df_oil_exxon <- df_oil_exxon %>%
+filter(date <= "2022-12-01") 
+
+
+#plotting                                                                                   
+df_oil_exxon %>%
+  ggplot(aes(x=date))+
+  geom_point(aes(y=exxon, col="exxon"))+
+  geom_point(aes(y=oil, col="oil"))+
+  scale_x_discrete(breaks = c("2010-06", "2012-06", "2014-06",  "2016-06",  "2018-06",  "2020-06",  "2022-06"))+
+  labs(title = "Monthly average oil price and exxon mobile stock price", 
+       y = "Dollars",
+       x = "date") +
+  scale_color_discrete(name="")
+```
+
+```{r}
+df_oil_exxon %>%
+  ggplot(aes(x=oil, y=exxon))+
+  geom_point()+
+    labs(title = "Exxon stockprice compared with oil price")
+```
+
+```{r}
+lm(exxon ~ oil, data=df_oil_exxon)
+```
+
+This Linear regression test estimates the intercept value to be 48.13. This is the value of the exxon variabel when the oil variable is at 0. The oil coefficient is 0.1282 this is the estimated increase in exxon associated with a one-unit increase in oil.
